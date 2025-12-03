@@ -27,7 +27,24 @@ uv add fastapi uvicorn pydantic "python-jose[cryptography]" bcrypt python-multip
 uv add --dev pytest httpx
 ```
 
-## Running the Server
+## Quick Start (Makefile)
+
+```bash
+# Install dependencies
+make install
+
+# Run development server
+make dev
+
+# Run tests
+make test
+
+# Format and lint code
+make format
+make lint
+```
+
+## Running the Server (Manual)
 
 ### Development Server
 
