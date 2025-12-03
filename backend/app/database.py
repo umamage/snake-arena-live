@@ -1,21 +1,236 @@
-"""Mock in-memory database for the Snake Arena Live API."""
+"""Database operations for the Snake Arena Live API using SQLAlchemy."""
 from datetime import datetime, UTC
 from typing import Optional
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
-from app.models import User, LeaderboardEntry, ActivePlayer, GameState, Position, Direction, GameMode
+
+from app.db_models import User as DBUser, LeaderboardEntry as DBLeaderboardEntry, ActivePlayer as DBActivePlayer
+from app.models import User, LeaderboardEntry, ActivePlayer, GameState
 
 
-# In-memory storage
-users_db: dict[str, dict] = {}
-email_to_user_id: dict[str, str] = {}
-username_to_user_id: dict[str, str] = {}
-leaderboard_db: list[dict] = []
-active_players_db: dict[str, dict] = {}
-sessions_db: dict[str, str] = {}  # token -> user_id
+# User operations
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[dict]:
+    """Get user by email."""
+    result = await db.execute(select(DBUser).where(DBUser.email == email))
+    user = result.scalar_one_or_none()
+    if user:
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "password_hash": user.password_hash,
+            "highScore": user.high_score,
+            "createdAt": user.created_at.isoformat()
+        }
+    return None
 
 
-def initialize_sample_data():
-    """Initialize the database with sample data."""
+async def get_user_by_id(db: AsyncSession, user_id: str) -> Optional[dict]:
+    """Get user by ID."""
+    result = await db.execute(select(DBUser).where(DBUser.id == user_id))
+    user = result.scalar_one_or_none()
+    if user:
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "password_hash": user.password_hash,
+            "highScore": user.high_score,
+            "createdAt": user.created_at.isoformat()
+        }
+    return None
+
+
+async def get_user_by_username(db: AsyncSession, username: str) -> Optional[dict]:
+    """Get user by username."""
+    result = await db.execute(select(DBUser).where(DBUser.username == username))
+    user = result.scalar_one_or_none()
+    if user:
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "password_hash": user.password_hash,
+            "highScore": user.high_score,
+            "createdAt": user.created_at.isoformat()
+        }
+    return None
+
+
+async def create_user(db: AsyncSession, email: str, username: str, password_hash: str) -> dict:
+    """Create a new user."""
+    user_id = str(uuid.uuid4())
+    db_user = DBUser(
+        id=user_id,
+        username=username,
+        email=email,
+        password_hash=password_hash,
+        high_score=0,
+        created_at=datetime.now(UTC)
+    )
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+    
+    return {
+        "id": db_user.id,
+        "username": db_user.username,
+        "email": db_user.email,
+        "password_hash": db_user.password_hash,
+        "highScore": db_user.high_score,
+        "createdAt": db_user.created_at.isoformat()
+    }
+
+
+async def update_user_high_score(db: AsyncSession, user_id: str, score: int) -> None:
+    """Update user's high score if the new score is higher."""
+    user = await db.get(DBUser, user_id)
+    if user and score > user.high_score:
+        user.high_score = score
+        await db.commit()
+
+
+# Leaderboard operations
+async def get_leaderboard(db: AsyncSession, mode: Optional[str] = None) -> list[LeaderboardEntry]:
+    """Get leaderboard entries, optionally filtered by mode."""
+    query = select(DBLeaderboardEntry)
+    if mode:
+        query = query.where(DBLeaderboardEntry.mode == mode)
+    
+    # Sort by score descending
+    query = query.order_by(DBLeaderboardEntry.score.desc())
+    
+    result = await db.execute(query)
+    entries = result.scalars().all()
+    
+    return [
+        LeaderboardEntry(
+            id=entry.id,
+            username=entry.username,
+            score=entry.score,
+            mode=entry.mode,
+            date=entry.date
+        )
+        for entry in entries
+    ]
+
+
+async def add_leaderboard_entry(db: AsyncSession, user_id: str, score: int, mode: str) -> int:
+    """Add a leaderboard entry and return the rank."""
+    user = await get_user_by_id(db, user_id)
+    if not user:
+        return -1
+    
+    entry_id = str(uuid.uuid4())
+    db_entry = DBLeaderboardEntry(
+        id=entry_id,
+        username=user["username"],
+        score=score,
+        mode=mode,
+        date=datetime.now(UTC).strftime("%Y-%m-%d")
+    )
+    db.add(db_entry)
+    
+    # Update user's high score
+    await update_user_high_score(db, user_id, score)
+    
+    await db.commit()
+    
+    # Calculate rank
+    query = select(DBLeaderboardEntry).where(DBLeaderboardEntry.mode == mode).order_by(DBLeaderboardEntry.score.desc())
+    result = await db.execute(query)
+    mode_entries = result.scalars().all()
+    
+    for idx, e in enumerate(mode_entries, 1):
+        if e.id == entry_id:
+            return idx
+    
+    return len(mode_entries)
+
+
+# Active players operations
+async def get_active_players(db: AsyncSession) -> list[ActivePlayer]:
+    """Get all active players."""
+    result = await db.execute(select(DBActivePlayer))
+    players = result.scalars().all()
+    
+    return [
+        ActivePlayer(
+            id=player.id,
+            username=player.username,
+            score=player.score,
+            mode=player.mode,
+            startedAt=player.started_at
+        )
+        for player in players
+    ]
+
+
+async def get_player_game_state(db: AsyncSession, player_id: str) -> Optional[GameState]:
+    """Get a specific player's game state."""
+    player = await db.get(DBActivePlayer, player_id)
+    if player and player.game_state:
+        return GameState(**player.game_state)
+    return None
+
+
+async def add_active_player(db: AsyncSession, player_id: str, username: str, mode: str) -> None:
+    """Add an active player."""
+    db_player = DBActivePlayer(
+        id=player_id,
+        username=username,
+        score=0,
+        mode=mode,
+        started_at=datetime.now(UTC),
+        game_state={
+            "snake": [{"x": 10, "y": 10}],
+            "food": {"x": 15, "y": 12},
+            "direction": "RIGHT",
+            "score": 0
+        }
+    )
+    db.add(db_player)
+    await db.commit()
+
+
+async def remove_active_player(db: AsyncSession, player_id: str) -> None:
+    """Remove an active player."""
+    player = await db.get(DBActivePlayer, player_id)
+    if player:
+        await db.delete(player)
+        await db.commit()
+
+
+# Session operations (In-memory for simplicity, or could be Redis/DB)
+# For now, keeping sessions in memory as they are just token->user_id mappings
+# In a production app, use Redis or a DB table for sessions
+sessions_db: dict[str, str] = {}
+
+async def create_session(token: str, user_id: str) -> None:
+    """Create a session."""
+    sessions_db[token] = user_id
+
+
+async def get_user_id_from_token(token: str) -> Optional[str]:
+    """Get user ID from token."""
+    return sessions_db.get(token)
+
+
+async def delete_session(token: str) -> None:
+    """Delete a session."""
+    if token in sessions_db:
+        del sessions_db[token]
+
+
+# Initialize sample data
+async def initialize_sample_data(db: AsyncSession):
+    """Initialize the database with sample data if empty."""
+    # Check if users exist
+    result = await db.execute(select(DBUser))
+    if result.first():
+        return
+
     # Sample users
     # Note: All sample users have password "password123"
     # Hash generated with: passlib.hash.bcrypt.hash("password123")
@@ -25,65 +240,55 @@ def initialize_sample_data():
             "username": "SnakeMaster",
             "email": "player1@test.com",
             "password_hash": "$2b$12$.1JnDJOdOylnBX4sdJM88ezzIwGqkshQ94XdYZJBK.exL6eBJz7D2",  # password123
-            "highScore": 2450,
-            "createdAt": "2024-01-15T10:30:00Z"
+            "high_score": 2450
         },
         {
             "id": "550e8400-e29b-41d4-a716-446655440001",
             "username": "SpeedySnake",
             "email": "player2@test.com",
             "password_hash": "$2b$12$.1JnDJOdOylnBX4sdJM88ezzIwGqkshQ94XdYZJBK.exL6eBJz7D2",  # password123
-            "highScore": 1800,
-            "createdAt": "2024-02-20T14:20:00Z"
+            "high_score": 1800
         },
         {
             "id": "550e8400-e29b-41d4-a716-446655440002",
             "username": "ProGamer",
             "email": "player3@test.com",
             "password_hash": "$2b$12$.1JnDJOdOylnBX4sdJM88ezzIwGqkshQ94XdYZJBK.exL6eBJz7D2",  # password123
-            "highScore": 3200,
-            "createdAt": "2024-03-10T09:15:00Z"
+            "high_score": 3200
         }
     ]
     
-    for user in sample_users:
-        users_db[user["id"]] = user
-        email_to_user_id[user["email"]] = user["id"]
-        username_to_user_id[user["username"]] = user["id"]
+    for user_data in sample_users:
+        db_user = DBUser(**user_data)
+        db.add(db_user)
     
     # Sample leaderboard entries
-    global leaderboard_db
-    leaderboard_db = [
+    sample_entries = [
         {
-            "id": str(uuid.uuid4()),
             "username": "ProGamer",
             "score": 3200,
             "mode": "walls",
             "date": "2024-11-28"
         },
         {
-            "id": str(uuid.uuid4()),
             "username": "SnakeMaster",
             "score": 2450,
             "mode": "walls",
             "date": "2024-11-27"
         },
         {
-            "id": str(uuid.uuid4()),
             "username": "SpeedySnake",
             "score": 1800,
             "mode": "walls",
             "date": "2024-11-26"
         },
         {
-            "id": str(uuid.uuid4()),
             "username": "ProGamer",
             "score": 2800,
             "mode": "pass-through",
             "date": "2024-11-28"
         },
         {
-            "id": str(uuid.uuid4()),
             "username": "SnakeMaster",
             "score": 2100,
             "mode": "pass-through",
@@ -91,187 +296,8 @@ def initialize_sample_data():
         }
     ]
     
-    # Sample active players
-    active_players_db["ap1"] = {
-        "id": "ap1",
-        "username": "LivePlayer1",
-        "score": 340,
-        "mode": "walls",
-        "startedAt": "2024-11-28T15:30:00Z",
-        "gameState": {
-            "snake": [{"x": 10, "y": 10}, {"x": 9, "y": 10}, {"x": 8, "y": 10}],
-            "food": {"x": 15, "y": 12},
-            "direction": "RIGHT",
-            "score": 340
-        }
-    }
-    
-    active_players_db["ap2"] = {
-        "id": "ap2",
-        "username": "LivePlayer2",
-        "score": 520,
-        "mode": "pass-through",
-        "startedAt": "2024-11-28T15:25:00Z",
-        "gameState": {
-            "snake": [{"x": 5, "y": 5}, {"x": 5, "y": 4}, {"x": 5, "y": 3}, {"x": 5, "y": 2}],
-            "food": {"x": 8, "y": 8},
-            "direction": "DOWN",
-            "score": 520
-        }
-    }
-
-
-# User operations
-def get_user_by_email(email: str) -> Optional[dict]:
-    """Get user by email."""
-    user_id = email_to_user_id.get(email)
-    if user_id:
-        return users_db.get(user_id)
-    return None
-
-
-def get_user_by_id(user_id: str) -> Optional[dict]:
-    """Get user by ID."""
-    return users_db.get(user_id)
-
-
-def get_user_by_username(username: str) -> Optional[dict]:
-    """Get user by username."""
-    user_id = username_to_user_id.get(username)
-    if user_id:
-        return users_db.get(user_id)
-    return None
-
-
-def create_user(email: str, username: str, password_hash: str) -> dict:
-    """Create a new user."""
-    user_id = str(uuid.uuid4())
-    user = {
-        "id": user_id,
-        "username": username,
-        "email": email,
-        "password_hash": password_hash,
-        "highScore": 0,
-        "createdAt": datetime.now(UTC).isoformat().replace('+00:00', 'Z')
-    }
-    users_db[user_id] = user
-    email_to_user_id[email] = user_id
-    username_to_user_id[username] = user_id
-    return user
-
-
-def update_user_high_score(user_id: str, score: int) -> None:
-    """Update user's high score if the new score is higher."""
-    user = users_db.get(user_id)
-    if user and score > user["highScore"]:
-        user["highScore"] = score
-
-
-# Leaderboard operations
-def get_leaderboard(mode: Optional[str] = None) -> list[LeaderboardEntry]:
-    """Get leaderboard entries, optionally filtered by mode."""
-    entries = leaderboard_db
-    if mode:
-        entries = [e for e in entries if e["mode"] == mode]
-    
-    # Sort by score descending
-    entries = sorted(entries, key=lambda x: x["score"], reverse=True)
-    
-    return [LeaderboardEntry(**entry) for entry in entries]
-
-
-def add_leaderboard_entry(user_id: str, score: int, mode: str) -> int:
-    """Add a leaderboard entry and return the rank."""
-    user = get_user_by_id(user_id)
-    if not user:
-        return -1
-    
-    entry = {
-        "id": str(uuid.uuid4()),
-        "username": user["username"],
-        "score": score,
-        "mode": mode,
-        "date": datetime.now(UTC).strftime("%Y-%m-%d")
-    }
-    leaderboard_db.append(entry)
-    
-    # Update user's high score
-    update_user_high_score(user_id, score)
-    
-    # Calculate rank
-    mode_entries = [e for e in leaderboard_db if e["mode"] == mode]
-    mode_entries = sorted(mode_entries, key=lambda x: x["score"], reverse=True)
-    
-    for idx, e in enumerate(mode_entries, 1):
-        if e["id"] == entry["id"]:
-            return idx
-    
-    return len(mode_entries)
-
-
-# Active players operations
-def get_active_players() -> list[ActivePlayer]:
-    """Get all active players."""
-    players = []
-    for player_data in active_players_db.values():
-        player = {
-            "id": player_data["id"],
-            "username": player_data["username"],
-            "score": player_data["score"],
-            "mode": player_data["mode"],
-            "startedAt": player_data["startedAt"]
-        }
-        players.append(ActivePlayer(**player))
-    return players
-
-
-def get_player_game_state(player_id: str) -> Optional[GameState]:
-    """Get a specific player's game state."""
-    player = active_players_db.get(player_id)
-    if player and "gameState" in player:
-        return GameState(**player["gameState"])
-    return None
-
-
-def add_active_player(player_id: str, username: str, mode: str) -> None:
-    """Add an active player."""
-    active_players_db[player_id] = {
-        "id": player_id,
-        "username": username,
-        "score": 0,
-        "mode": mode,
-        "startedAt": datetime.now(UTC).isoformat().replace('+00:00', 'Z'),
-        "gameState": {
-            "snake": [{"x": 10, "y": 10}],
-            "food": {"x": 15, "y": 12},
-            "direction": "RIGHT",
-            "score": 0
-        }
-    }
-
-
-def remove_active_player(player_id: str) -> None:
-    """Remove an active player."""
-    if player_id in active_players_db:
-        del active_players_db[player_id]
-
-
-# Session operations
-def create_session(token: str, user_id: str) -> None:
-    """Create a session."""
-    sessions_db[token] = user_id
-
-
-def get_user_id_from_token(token: str) -> Optional[str]:
-    """Get user ID from token."""
-    return sessions_db.get(token)
-
-
-def delete_session(token: str) -> None:
-    """Delete a session."""
-    if token in sessions_db:
-        del sessions_db[token]
-
-
-# Initialize sample data on module import
-initialize_sample_data()
+    for entry_data in sample_entries:
+        db_entry = DBLeaderboardEntry(**entry_data)
+        db.add(db_entry)
+        
+    await db.commit()
