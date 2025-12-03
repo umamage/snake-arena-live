@@ -17,12 +17,14 @@ sessions_db: dict[str, str] = {}  # token -> user_id
 def initialize_sample_data():
     """Initialize the database with sample data."""
     # Sample users
+    # Note: All sample users have password "password123"
+    # Hash generated with: passlib.hash.bcrypt.hash("password123")
     sample_users = [
         {
             "id": "550e8400-e29b-41d4-a716-446655440000",
             "username": "SnakeMaster",
             "email": "player1@test.com",
-            "password_hash": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzS5MRLzKu",  # password123
+            "password_hash": "$2b$12$.1JnDJOdOylnBX4sdJM88ezzIwGqkshQ94XdYZJBK.exL6eBJz7D2",  # password123
             "highScore": 2450,
             "createdAt": "2024-01-15T10:30:00Z"
         },
@@ -30,7 +32,7 @@ def initialize_sample_data():
             "id": "550e8400-e29b-41d4-a716-446655440001",
             "username": "SpeedySnake",
             "email": "player2@test.com",
-            "password_hash": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzS5MRLzKu",  # password123
+            "password_hash": "$2b$12$.1JnDJOdOylnBX4sdJM88ezzIwGqkshQ94XdYZJBK.exL6eBJz7D2",  # password123
             "highScore": 1800,
             "createdAt": "2024-02-20T14:20:00Z"
         },
@@ -38,7 +40,7 @@ def initialize_sample_data():
             "id": "550e8400-e29b-41d4-a716-446655440002",
             "username": "ProGamer",
             "email": "player3@test.com",
-            "password_hash": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzS5MRLzKu",  # password123
+            "password_hash": "$2b$12$.1JnDJOdOylnBX4sdJM88ezzIwGqkshQ94XdYZJBK.exL6eBJz7D2",  # password123
             "highScore": 3200,
             "createdAt": "2024-03-10T09:15:00Z"
         }
