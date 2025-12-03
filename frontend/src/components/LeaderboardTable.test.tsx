@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { LeaderboardTable } from './LeaderboardTable';
 
 describe('LeaderboardTable', () => {
@@ -8,11 +8,11 @@ describe('LeaderboardTable', () => {
     expect(container.textContent).toContain('LOADING...');
   });
 
-  it('renders table structure', () => {
-    const { container } = render(<LeaderboardTable />);
-    
-    // Should have a table element
-    const table = container.querySelector('table');
+  it('renders table structure', async () => {
+    render(<LeaderboardTable />);
+
+    // Should have a table element (wait for loading to finish)
+    const table = await screen.findByRole('table');
     expect(table).toBeTruthy();
   });
 
