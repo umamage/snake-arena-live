@@ -142,7 +142,7 @@ def test_submit_score_invalid_mode(client, auth_headers):
         }
     )
     
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_submit_score_negative_score(client, auth_headers):
@@ -156,4 +156,4 @@ def test_submit_score_negative_score(client, auth_headers):
         }
     )
     
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
