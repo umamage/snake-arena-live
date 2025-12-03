@@ -1,7 +1,7 @@
 """Pydantic models for the Snake Arena Live API."""
 from datetime import datetime
 from typing import Literal
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from enum import Enum
 
 
@@ -29,14 +29,8 @@ class Position(BaseModel):
 
 class User(BaseModel):
     """User profile model."""
-    id: str
-    username: str
-    email: EmailStr
-    highScore: int = Field(..., ge=0)
-    createdAt: datetime
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "550e8400-e29b-41d4-a716-446655440000",
                 "username": "SnakeMaster",
@@ -45,18 +39,19 @@ class User(BaseModel):
                 "createdAt": "2024-01-15T10:30:00Z"
             }
         }
+    )
+    
+    id: str
+    username: str
+    email: EmailStr
+    highScore: int = Field(..., ge=0)
+    createdAt: datetime
 
 
 class LeaderboardEntry(BaseModel):
     """Leaderboard entry model."""
-    id: str
-    username: str
-    score: int = Field(..., ge=0)
-    mode: GameMode
-    date: str
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "550e8400-e29b-41d4-a716-446655440001",
                 "username": "SnakeMaster",
@@ -65,18 +60,19 @@ class LeaderboardEntry(BaseModel):
                 "date": "2024-11-28"
             }
         }
-
-
-class ActivePlayer(BaseModel):
-    """Active player model for spectator mode."""
+    )
+    
     id: str
     username: str
     score: int = Field(..., ge=0)
     mode: GameMode
-    startedAt: datetime
+    date: str
 
-    class Config:
-        json_schema_extra = {
+
+class ActivePlayer(BaseModel):
+    """Active player model for spectator mode."""
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "ap1",
                 "username": "LivePlayer1",
@@ -85,17 +81,19 @@ class ActivePlayer(BaseModel):
                 "startedAt": "2024-11-28T15:30:00Z"
             }
         }
+    )
+    
+    id: str
+    username: str
+    score: int = Field(..., ge=0)
+    mode: GameMode
+    startedAt: datetime
 
 
 class GameState(BaseModel):
     """Game state model for spectator mode."""
-    snake: list[Position]
-    food: Position
-    direction: Direction
-    score: int = Field(..., ge=0)
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "snake": [{"x": 10, "y": 10}, {"x": 9, "y": 10}],
                 "food": {"x": 15, "y": 12},
@@ -103,51 +101,60 @@ class GameState(BaseModel):
                 "score": 340
             }
         }
+    )
+    
+    snake: list[Position]
+    food: Position
+    direction: Direction
+    score: int = Field(..., ge=0)
 
 
 # Request Models
 class LoginRequest(BaseModel):
     """Login request model."""
-    email: EmailStr
-    password: str = Field(..., min_length=1)
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "player1@test.com",
                 "password": "password123"
             }
         }
+    )
+    
+    email: EmailStr
+    password: str = Field(..., min_length=1)
 
 
 class SignupRequest(BaseModel):
     """Signup request model."""
-    email: EmailStr
-    username: str = Field(..., min_length=3, max_length=20)
-    password: str = Field(..., min_length=6)
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "newuser@test.com",
                 "username": "NewPlayer",
                 "password": "password123"
             }
         }
+    )
+    
+    email: EmailStr
+    username: str = Field(..., min_length=3, max_length=20)
+    password: str = Field(..., min_length=6)
 
 
 class SubmitScoreRequest(BaseModel):
     """Submit score request model."""
-    score: int = Field(..., ge=0)
-    mode: GameMode
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "score": 1500,
                 "mode": "walls"
             }
         }
+    )
+    
+    score: int = Field(..., ge=0)
+    mode: GameMode
 
 
 # Response Models
@@ -163,25 +170,27 @@ class SignupResponse(BaseModel):
 
 class SubmitScoreResponse(BaseModel):
     """Submit score response model."""
-    success: bool
-    rank: int = Field(..., description="The player's rank on the leaderboard")
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "success": True,
                 "rank": 5
             }
         }
+    )
+    
+    success: bool
+    rank: int = Field(..., description="The player's rank on the leaderboard")
 
 
 class ErrorResponse(BaseModel):
     """Error response model."""
-    error: str
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "error": "Invalid credentials"
             }
         }
+    )
+    
+    error: str

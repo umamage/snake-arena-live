@@ -1,5 +1,5 @@
 """Mock in-memory database for the Snake Arena Live API."""
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
 import uuid
 from app.models import User, LeaderboardEntry, ActivePlayer, GameState, Position, Direction, GameMode
@@ -152,7 +152,7 @@ def create_user(email: str, username: str, password_hash: str) -> dict:
         "email": email,
         "password_hash": password_hash,
         "highScore": 0,
-        "createdAt": datetime.utcnow().isoformat() + "Z"
+        "createdAt": datetime.now(UTC).isoformat().replace('+00:00', 'Z')
     }
     users_db[user_id] = user
     email_to_user_id[email] = user_id
@@ -191,7 +191,7 @@ def add_leaderboard_entry(user_id: str, score: int, mode: str) -> int:
         "username": user["username"],
         "score": score,
         "mode": mode,
-        "date": datetime.utcnow().strftime("%Y-%m-%d")
+        "date": datetime.now(UTC).strftime("%Y-%m-%d")
     }
     leaderboard_db.append(entry)
     
@@ -240,7 +240,7 @@ def add_active_player(player_id: str, username: str, mode: str) -> None:
         "username": username,
         "score": 0,
         "mode": mode,
-        "startedAt": datetime.utcnow().isoformat() + "Z",
+        "startedAt": datetime.now(UTC).isoformat().replace('+00:00', 'Z'),
         "gameState": {
             "snake": [{"x": 10, "y": 10}],
             "food": {"x": 15, "y": 12},

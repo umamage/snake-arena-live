@@ -1,5 +1,6 @@
 """Authentication utilities for JWT token handling and password hashing."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
+
 from typing import Optional
 from jose import JWTError, jwt
 import bcrypt
@@ -29,9 +30,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     """Create a JWT access token."""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.utcnow() + ACCESS_TOKEN_EXPIRE_DELTA
+        expire = datetime.now(UTC) + ACCESS_TOKEN_EXPIRE_DELTA
     
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
